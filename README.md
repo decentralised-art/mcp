@@ -47,8 +47,8 @@ It also exposes the MCP resource:
 ## Drafts, publication and execution
 
 The chain client uses contracts generated from the pinned `api-spec` OpenAPI
-source at `submodules/api-spec` (currently the same `c628d96` commit used
-by `sdk`). Endpoint paths, authentication requirements, query and
+source at `submodules/api-spec` (currently pinned to `a6d9127`).
+Endpoint paths, authentication requirements, query and
 create/publication request shapes, and execution/publication responses are
 checked against those contracts. MCP tool schemas describe MCP inputs, not HTTP
 requests. To update the API contract, update the submodule, run
@@ -59,12 +59,21 @@ packaged with the MCP server, so installed clients do not need the submodule.
 `core.create_*` creates local drafts. `core.simulate_connector` previews them
 without login or gas and returns `{particles, execution_mode: "simulation"}`.
 `core.execute_connector` requires published entities and returns
-`{block_number, block_hash, runner, particles, execution_mode: "chain"}` without
+`{block_number, block_hash, runner, registry, particles, execution_mode: "chain"}` without
 login or gas; the server makes a read-only call at its configured chain block.
-Keep the full chain result when using its particles so the block and runner
+Keep the full chain result when using its particles so the block, runner and registry
 provenance is retained. Simulation returns only particles and has no chain provenance.
 Transformation and condition detail responses use `args_count`;
 Solidity source is no longer part of runtime details.
+
+Chain login signs the EIP-4361 `message` returned by `/nonce/{address}` using
+EIP-191, then submits `{address, nonce, signature}` to `/auth`. Deployments that
+return only a decimal `nonce` use `Login nonce: <nonce>` and submit
+`{address, message, signature}`. That compatibility contract is generated from
+`api-spec` commit `c628d96`, frozen in `scripts/compat/legacy_auth_contracts.json`
+so regeneration needs no historical Git objects.
+The MCP's `core.get_nonce` returns the address and the challenge as issued;
+`message` is present when the deployment supplies it.
 
 Publication is explicit and owner-paid. First inspect `core.prepare_publication`,
 then call `core.publish_entity` with `kind`, `name`, `max_fee_per_gas`,

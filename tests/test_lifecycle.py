@@ -16,6 +16,7 @@ OWNER = "0x" + "11" * 20
 HASH = "0x" + "ab" * 32
 TX_HASH = "0x" + "cd" * 32
 ENVELOPE = {"block_number": 123, "block_hash": HASH, "runner": "0x" + "22" * 20,
+            "registry": "0x" + "33" * 20,
             "particles": [{"path": "/piece:0/pitch:0", "data": [60]}]}
 PREPARED = {"status": "prepared", "kind": "connector", "name": "piece", "content_hash": HASH,
             "deadline": 4102444800, "transaction": {"from": OWNER, "to": "0x" + "22" * 20,
@@ -72,6 +73,7 @@ class LifecycleTests(unittest.TestCase):
         client.session.post = Mock(side_effect=responses)
         envelope = client.execute_connector("piece", 8)
         self.assertIs(envelope, ENVELOPE)
+        self.assertEqual(envelope["registry"], "0x" + "33" * 20)
         self.assertEqual(execution_particles(envelope), ENVELOPE["particles"])
         self.assertEqual(client.simulate_connector("piece", 8), ENVELOPE["particles"])
         self.assertEqual([call.args[0] for call in client.session.post.call_args_list],
@@ -80,7 +82,9 @@ class LifecycleTests(unittest.TestCase):
         client.ensure_auth.assert_not_called()
 
     def test_execute_rejects_legacy_array_and_missing_provenance(self):
-        for value in ([], {"particles": []}, {**ENVELOPE, "block_number": True}, {**ENVELOPE, "runner": "0x0"}):
+        for value in ([], {"particles": []}, {**ENVELOPE, "block_number": True}, {**ENVELOPE, "runner": "0x0"},
+                      {key: value for key, value in ENVELOPE.items() if key != "registry"},
+                      {**ENVELOPE, "registry": "0x0"}):
             with self.subTest(value=value):
                 client = DecentralisedArtClient("https://example.invalid/chain")
                 client._handle_response = lambda value: value

@@ -36,6 +36,7 @@ class ApiContractsTests(unittest.TestCase):
                 "block_number": 1,
                 "block_hash": "0x" + "ab" * 32,
                 "runner": "0x" + "12" * 20,
+                "registry": "0x" + "34" * 20,
                 "particles": [{"path": "/example:0", "data": [1.5]}],
             })
 

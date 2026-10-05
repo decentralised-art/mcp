@@ -1,0 +1,89 @@
+{
+  "operations": {
+    "GET_nonce": {
+      "method": "GET",
+      "path": "/nonce/{address}",
+      "query_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "request_schema": null,
+      "response_schemas": {
+        "200": {
+          "additionalProperties": false,
+          "description": "Nonce response.",
+          "properties": {
+            "nonce": {
+              "description": "One-time nonce to be signed by the account owner.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "nonce"
+          ],
+          "title": "NonceResponse",
+          "type": "object"
+        }
+      },
+      "security": []
+    },
+    "POST_auth": {
+      "method": "POST",
+      "path": "/auth",
+      "query_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "request_schema": {
+        "additionalProperties": false,
+        "description": "Auth request.",
+        "properties": {
+          "address": {
+            "description": "Ethereum-style address, with or without a 0x prefix.",
+            "pattern": "^(0x)?[a-fA-F0-9]{40}$",
+            "title": "Address",
+            "type": "string"
+          },
+          "message": {
+            "description": "Login message signed by the account owner. Must be `Login nonce: <nonce>`.\n",
+            "type": "string"
+          },
+          "signature": {
+            "description": "Wallet signature of the login message.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "message",
+          "signature"
+        ],
+        "title": "AuthRequest",
+        "type": "object"
+      },
+      "response_schemas": {
+        "200": {
+          "additionalProperties": false,
+          "description": "Auth response.",
+          "properties": {
+            "access_token": {
+              "description": "JWT access token for protected chain endpoints.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "access_token"
+          ],
+          "title": "AuthResponse",
+          "type": "object"
+        }
+      },
+      "security": []
+    }
+  },
+  "spec_commit": "c628d96b3b69e81c65c7ab7d74e00b0555cd846d"
+}

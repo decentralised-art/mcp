@@ -79,12 +79,12 @@ def register(registry) -> None:
     @registry.tool(
         namespace="core",
         name="get_nonce",
-        description="Fetch the current auth nonce for an address.",
+        description="Fetch a one-time auth nonce and the sign-in message when supplied by the API.",
         input_schema=object_schema({"address": string_schema(min_length=1), "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["address"]),
     )
     def _get_nonce(params: Dict[str, Any]) -> Dict[str, Any]:
         with context_from_params(params) as ctx:
-            return {"address": params["address"], "nonce": ctx.client().get_nonce(str(params["address"]))}
+            return {"address": params["address"], **ctx.client().get_nonce(str(params["address"]))}
 
     @registry.tool(
         namespace="core",
@@ -304,7 +304,7 @@ def register(registry) -> None:
     @registry.tool(
         namespace="core",
         name="execute_connector",
-        description="Read a published connector from the chain runner without login or gas and return particles with block_number, block_hash and runner provenance.",
+        description="Read a published connector from the chain runner without login or gas and return particles with block_number, block_hash, runner and registry provenance.",
         input_schema=object_schema(
             {
                 "connector_name": string_schema(min_length=1),

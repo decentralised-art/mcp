@@ -82,33 +82,40 @@ class DecentralisedArtClient(LifecycleClientMixin):
             )
         return response
 
-    def get_nonce(self, address: str) -> str:
+    def get_nonce(self, address: str) -> Dict[str, Any]:
         response = self.session.get(f"{self.base_url}{api_path('GET_nonce', address=address)}", timeout=self.timeout)
-        response.raise_for_status()
-        payload = response.json()
-        if isinstance(payload, dict) and "nonce" in payload:
-            return str(payload["nonce"])
-        raise ValueError(f"Unexpected nonce response shape: {payload}")
+        payload = self._handle_response(response)
+        operation_id = "GET_nonce"
+        if (isinstance(payload, dict) and set(payload) == {"nonce"}
+                and isinstance(payload["nonce"], str) and payload["nonce"].isdigit()):
+            operation_id = "GET_nonce_legacy"
+        validate_response(operation_id, payload, response.status_code)
+        return payload
 
-    def post_auth(self, address: str, message: str, signature: str) -> Dict[str, Any]:
-        payload = {"address": address, "message": message, "signature": signature}
-        validate_request("POST_auth", payload)
+    def post_auth(self, address: str, nonce: str, signature: str,
+                  *, message: str | None = None) -> Dict[str, Any]:
+        operation_id = "POST_auth" if message is None else "POST_auth_legacy"
+        payload = {"address": address, "signature": signature}
+        payload.update({"nonce": nonce} if message is None else {"message": message})
+        validate_request(operation_id, payload)
         response = self.session.post(
-            f"{self.base_url}{api_path('POST_auth')}",
+            f"{self.base_url}{api_path(operation_id)}",
             json=payload,
             timeout=self.timeout,
         )
         data = self._handle_response(response)
+        validate_response(operation_id, data, response.status_code)
         self.access_token = data.get("access_token")
         return data
 
     def ensure_auth(self, acct) -> None:
         if self.access_token:
             return
-        nonce = self.get_nonce(acct.address)
-        message = f"Login nonce: {nonce}"
+        challenge = self.get_nonce(acct.address)
+        message = challenge.get("message", f"Login nonce: {challenge['nonce']}")
         signature = acct.sign_message(encode_defunct(text=message)).signature.hex()
-        auth_result = self.post_auth(acct.address, message, signature)
+        auth_result = self.post_auth(acct.address, challenge["nonce"], signature,
+                                     message=message if "message" not in challenge else None)
         if not self.access_token:
             raise RuntimeError(f"Auth failed — missing access token: {auth_result}")
 
@@ -216,8 +223,8 @@ class DecentralisedArtClient(LifecycleClientMixin):
             params["after_transformations"] = after_transformations
         if after_conditions is not None:
             params["after_conditions"] = after_conditions
-        validate_query("GET_account", params)
-        return self._handle_response(self._get(api_path("GET_account", address=address), params=params))
+        validate_query("GET_accountInfo", params)
+        return self._handle_response(self._get(api_path("GET_accountInfo", address=address), params=params))
 
     def get_feed_page(
         self,
