@@ -1,6 +1,9 @@
 {
+  "compatibility_spec_commits": {
+    "legacy_auth": "c628d96b3b69e81c65c7ab7d74e00b0555cd846d"
+  },
   "operations": {
-    "GET_account": {
+    "GET_accountInfo": {
       "method": "GET",
       "path": "/account/{address}",
       "query_schema": {
@@ -179,11 +182,18 @@
               "pattern": "^(0x)?[a-fA-F0-9]{40}$",
               "title": "Address",
               "type": "string"
+            },
+            "runtime_code": {
+              "description": "Deployed runtime bytecode as 0x-prefixed hex, or null while the registry does not hold it.",
+              "nullable": true,
+              "pattern": "^0x[0-9a-f]*$",
+              "type": "string"
             }
           },
           "required": [
             "name",
             "args_count",
+            "runtime_code",
             "owner",
             "address"
           ],
@@ -215,6 +225,7 @@
             "condition_args": {
               "description": "Condition arguments.",
               "items": {
+                "format": "int32",
                 "type": "integer"
               },
               "type": "array"
@@ -249,6 +260,7 @@
                         "args": {
                           "description": "Transformation arguments. Omitted means no arguments.",
                           "items": {
+                            "format": "int32",
                             "type": "integer"
                           },
                           "type": "array"
@@ -754,6 +766,47 @@
       "path": "/nonce/{address}",
       "query_schema": {
         "additionalProperties": false,
+        "properties": {
+          "origin": {
+            "example": "https://decentralised.art",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "request_schema": null,
+      "response_schemas": {
+        "200": {
+          "additionalProperties": false,
+          "description": "Nonce response.",
+          "properties": {
+            "message": {
+              "description": "EIP-4361 sign-in message for the wallet to sign with `personal_sign`. It names the site with its scheme, the checksummed address, the chain ID, the nonce, and when it was issued and expires.\n",
+              "example": "https://decentralised.art wants you to sign in with your Ethereum account:\n0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n\nSign in to decentralised.art.\n\nURI: https://decentralised.art\nVersion: 1\nChain ID: 11155111\nNonce: 000000006ac23fc0003f9c1d27a84be6526b0d8e4c13f7a9e5d2b8c06f41e93a7d\nIssued At: 2026-10-04T12:00:00Z\nExpiration Time: 2026-10-04T12:05:00Z",
+              "type": "string"
+            },
+            "nonce": {
+              "description": "One-time nonce identifying `message`; submit it to `/auth`.",
+              "pattern": "^[0-9a-f]{66}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "nonce",
+            "message"
+          ],
+          "title": "NonceResponse",
+          "type": "object"
+        }
+      },
+      "security": []
+    },
+    "GET_nonce_legacy": {
+      "method": "GET",
+      "path": "/nonce/{address}",
+      "query_schema": {
+        "additionalProperties": false,
         "properties": {},
         "required": [],
         "type": "object"
@@ -812,11 +865,18 @@
               "pattern": "^(0x)?[a-fA-F0-9]{40}$",
               "title": "Address",
               "type": "string"
+            },
+            "runtime_code": {
+              "description": "Deployed runtime bytecode as 0x-prefixed hex, or null while the registry does not hold it.",
+              "nullable": true,
+              "pattern": "^0x[0-9a-f]*$",
+              "type": "string"
             }
           },
           "required": [
             "name",
             "args_count",
+            "runtime_code",
             "owner",
             "address"
           ],
@@ -847,7 +907,7 @@
               "type": "string"
             },
             "version": {
-              "description": "Human-readable service version",
+              "description": "Human-readable API version",
               "example": "0.4.0",
               "type": "string"
             }
@@ -863,6 +923,62 @@
       "security": []
     },
     "POST_auth": {
+      "method": "POST",
+      "path": "/auth",
+      "query_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "request_schema": {
+        "additionalProperties": false,
+        "description": "Auth request.",
+        "properties": {
+          "address": {
+            "description": "Ethereum-style address, with or without a 0x prefix.",
+            "pattern": "^(0x)?[a-fA-F0-9]{40}$",
+            "title": "Address",
+            "type": "string"
+          },
+          "nonce": {
+            "description": "The nonce `/nonce` issued to `address`.",
+            "pattern": "^[0-9a-f]{66}$",
+            "type": "string"
+          },
+          "signature": {
+            "description": "The wallet's `personal_sign` (EIP-191) signature of the `message` issued with `nonce`, as 65-byte hex.\n",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "nonce",
+          "signature"
+        ],
+        "title": "AuthRequest",
+        "type": "object"
+      },
+      "response_schemas": {
+        "200": {
+          "additionalProperties": false,
+          "description": "Auth response.",
+          "properties": {
+            "access_token": {
+              "description": "JWT access token for protected chain endpoints.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "access_token"
+          ],
+          "title": "AuthResponse",
+          "type": "object"
+        }
+      },
+      "security": []
+    },
+    "POST_auth_legacy": {
       "method": "POST",
       "path": "/auth",
       "query_schema": {
@@ -1008,6 +1124,7 @@
           "condition_args": {
             "description": "Condition arguments. Omitted means no condition arguments.",
             "items": {
+              "format": "int32",
               "type": "integer"
             },
             "type": "array"
@@ -1042,6 +1159,7 @@
                       "args": {
                         "description": "Transformation arguments. Omitted means no arguments.",
                         "items": {
+                          "format": "int32",
                           "type": "integer"
                         },
                         "type": "array"
@@ -1242,8 +1360,10 @@
                 "description": "One returned scalar stream for an execution path.",
                 "properties": {
                   "data": {
-                    "description": "Output particle values for this path.",
+                    "description": "Output particle values for this path (uint32).",
                     "items": {
+                      "maximum": 4294967295,
+                      "minimum": 0,
                       "type": "integer"
                     },
                     "type": "array"
@@ -1262,6 +1382,10 @@
               },
               "type": "array"
             },
+            "registry": {
+              "description": "Registry contract address the runner looked the connector up in.",
+              "type": "string"
+            },
             "runner": {
               "description": "Runner contract address that executed the call.",
               "type": "string"
@@ -1271,6 +1395,7 @@
             "block_number",
             "block_hash",
             "runner",
+            "registry",
             "particles"
           ],
           "title": "ExecuteResponse",
@@ -1307,6 +1432,7 @@
           },
           "tx_hash": {
             "description": "Hash of the sent publication transaction.",
+            "pattern": "^(0x)?[a-fA-F0-9]{64}$",
             "type": "string"
           }
         },
@@ -1836,8 +1962,10 @@
             "description": "One returned scalar stream for an execution path.",
             "properties": {
               "data": {
-                "description": "Output particle values for this path.",
+                "description": "Output particle values for this path (uint32).",
                 "items": {
+                  "maximum": 4294967295,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 "type": "array"
@@ -1936,5 +2064,5 @@
       ]
     }
   },
-  "spec_commit": "c628d96b3b69e81c65c7ab7d74e00b0555cd846d"
+  "spec_commit": "a6d9127d7fce367519f56db8134553d3f97c33b9"
 }

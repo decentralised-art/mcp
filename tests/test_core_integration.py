@@ -21,6 +21,9 @@ class FakeClient:
     def connector_exists(self, name):
         return name == "pitch"
 
+    def get_nonce(self, address):
+        return {"nonce": "ab" * 33, "message": "Sign in to decentralised.art."}
+
     def transformation_exists(self, name):
         return name == "math_add_v1"
 
@@ -90,7 +93,7 @@ class FakeClient:
         return [{"path": "/cell:0/pitch:0", "data": [60]}]
 
     def execute_connector(self, connector_name, particles_count, dynamic_ri=None):
-        return {"block_number": 42, "block_hash": "0x" + "ab" * 32, "runner": "0x" + "12" * 20, "particles": [{"path": "/cell:0/pitch:0", "data": [60]}]}
+        return {"block_number": 42, "block_hash": "0x" + "ab" * 32, "runner": "0x" + "12" * 20, "registry": "0x" + "34" * 20, "particles": [{"path": "/cell:0/pitch:0", "data": [60]}]}
 
 
 def fake_account_loader(_private_key):
@@ -109,6 +112,12 @@ class CoreIntegrationTests(unittest.TestCase):
         result = self.registry.invoke("core.connector_exists", {"name": "pitch"})
         self.assertTrue(result["ok"])
         self.assertEqual(result["data"], {"name": "pitch", "exists": True})
+
+    def test_get_nonce_returns_the_message_and_nonce(self):
+        result = self.registry.invoke("core.get_nonce", {"address": "0x" + "11" * 20})
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["data"], {"address": "0x" + "11" * 20,
+                                         "nonce": "ab" * 33, "message": "Sign in to decentralised.art."})
 
     def test_transformation_exists_uses_fake_client(self):
         result = self.registry.invoke("core.transformation_exists", {"name": "math_add_v1"})
@@ -158,6 +167,7 @@ class CoreIntegrationTests(unittest.TestCase):
         self.assertEqual(result["data"]["particles"][0]["data"], [60])
         self.assertNotIn("samples", result["data"])
         self.assertEqual(result["data"]["block_number"], 42)
+        self.assertEqual(result["data"]["registry"], "0x" + "34" * 20)
         self.assertEqual(result["data"]["execution_mode"], "chain")
         simulated = self.registry.invoke("core.simulate_connector", {"connector_name": "draft", "particles_count": 8})
         self.assertTrue(simulated["ok"])

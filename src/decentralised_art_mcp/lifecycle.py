@@ -32,6 +32,8 @@ def execution_particles(result: Any) -> list[dict]:
             raise ValueError("Execution must include block_hash")
         if not re.fullmatch(r"0x[0-9a-fA-F]{40}", str(result.get("runner", ""))):
             raise ValueError("Execution must include runner")
+        if not re.fullmatch(r"0x[0-9a-fA-F]{40}", str(result.get("registry", ""))):
+            raise ValueError("Execution must include registry")
         particles = result.get("particles")
     else:
         particles = None

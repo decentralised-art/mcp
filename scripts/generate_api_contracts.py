@@ -16,11 +16,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 SPEC_ROOT = ROOT / "submodules" / "api-spec"
 OUTPUT = ROOT / "src" / "decentralised_art_mcp" / "generated" / "api_contracts.json"
+LEGACY_AUTH_CONTRACTS = ROOT / "scripts" / "compat" / "legacy_auth_contracts.json"
 OPERATIONS = {
     "GET_version", "GET_nonce", "POST_auth", "GET_connector",
     "GET_transformation", "GET_condition", "POST_connector",
     "POST_transformation", "POST_condition", "POST_execute",
-    "POST_simulate", "GET_formats", "GET_format", "GET_account",
+    "POST_simulate", "GET_formats", "GET_format", "GET_accountInfo",
     "GET_feed", "GET_feedStream", "POST_publishPrepare",
     "POST_publishSend", "POST_publishConfirm",
 }
@@ -101,11 +102,11 @@ def operation_contract(path: str, method: str, operation: dict[str, Any],
 
 
 def generate() -> str:
-    services = SPEC_ROOT / "services"
-    if not services.is_dir():
+    chain = SPEC_ROOT / "apis" / "chain"
+    if not chain.is_dir():
         raise SystemExit("Initialize the pinned spec: git submodule update --init submodules/api-spec")
     contracts: dict[str, Any] = {}
-    for source in sorted(services.glob("*/openapi.yaml")):
+    for source in sorted(chain.glob("*/openapi.yaml")):
         document = load_yaml(source)
         for path, path_item in document.get("paths", {}).items():
             for method, operation in path_item.items():
@@ -122,9 +123,14 @@ def generate() -> str:
     missing = OPERATIONS - contracts.keys()
     if missing:
         raise ValueError(f"Missing OpenAPI operations: {', '.join(sorted(missing))}")
+    legacy_auth = json.loads(LEGACY_AUTH_CONTRACTS.read_text(encoding="utf-8"))
+    for operation_id, contract in legacy_auth["operations"].items():
+        contracts[f"{operation_id}_legacy"] = contract
     spec_commit = subprocess.check_output(
         ["git", "-C", str(SPEC_ROOT), "rev-parse", "HEAD"], text=True).strip()
-    return json.dumps({"spec_commit": spec_commit, "operations": contracts},
+    return json.dumps({"spec_commit": spec_commit,
+                      "compatibility_spec_commits": {"legacy_auth": legacy_auth["spec_commit"]},
+                      "operations": contracts},
                       indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
