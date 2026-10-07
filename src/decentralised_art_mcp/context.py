@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
 from .auth import load_account
+from .accounts import load_local_account
 from .client import DecentralisedArtClient
 from .config import DEFAULT_API_BASE, DEFAULT_TIMEOUT, MAX_TIMEOUT_SECONDS, MIN_TIMEOUT_SECONDS
 from .errors import AuthConfigurationError, ValidationError
@@ -31,6 +32,7 @@ class RuntimeContext:
     api_base: str = DEFAULT_API_BASE
     timeout: float = DEFAULT_TIMEOUT
     private_key: Optional[str] = None
+    account_id: Optional[str] = None
     client_factory: Optional[ClientFactory] = None
     account_loader: Optional[AccountLoader] = None
     _client: Optional[Any] = field(default=None, init=False, repr=False)
@@ -58,6 +60,9 @@ class RuntimeContext:
     def account(self, *, required: bool = True):
         if self._account is not None:
             return self._account
+        if self.account_id is not None:
+            self._account = load_local_account(self.account_id)
+            return self._account
         loader = self.account_loader or _ACCOUNT_LOADER_OVERRIDE.get() or load_account
         try:
             self._account = loader(self.private_key)
@@ -66,12 +71,16 @@ class RuntimeContext:
             if not required:
                 return None
             raise AuthConfigurationError(
-                "Missing or invalid account configuration.",
+                "Missing or invalid account configuration. Read core.documentation for onboarding. "
+                "For a fresh identity, use core.create_account and pass its account_id; "
+                "for an existing owner, configure PRIVATE_KEY locally. Never ask for a private key in chat.",
                 details={"exception_type": exc.__class__.__name__},
             ) from exc
 
 
 def context_from_params(params: Dict[str, Any]) -> RuntimeContext:
+    if params.get("account_id") is not None and params.get("private_key") is not None:
+        raise ValidationError("Use account_id or private_key, not both.")
     timeout = DEFAULT_TIMEOUT
     if "timeout" in params and params["timeout"] is not None:
         try:
@@ -90,4 +99,5 @@ def context_from_params(params: Dict[str, Any]) -> RuntimeContext:
         api_base=api_base,
         timeout=timeout,
         private_key=params.get("private_key"),
+        account_id=params.get("account_id"),
     )

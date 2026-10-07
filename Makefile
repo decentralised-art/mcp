@@ -6,7 +6,7 @@ STAMP := $(VENV_DIR)/.bootstrap-complete
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install smoke test stdio mcpb list-tools list-resources read-core-primer invoke-example
+.PHONY: help install smoke test stdio mcpb sync-docs list-tools list-resources read-core-primer invoke-example
 
 help:
 	@echo "decentralised.art MCP targets:"
@@ -15,6 +15,7 @@ help:
 	@echo "  make test           Run the full test suite"
 	@echo "  make stdio          Run the real MCP stdio server"
 	@echo "  make mcpb           Build a Claude Desktop .mcpb bundle in dist/"
+	@echo "  make sync-docs      Refresh bundled platform Markdown documentation"
 	@echo "  make list-tools     List local tool metadata"
 	@echo "  make list-resources List local resource metadata"
 	@echo "  make read-core-primer Read the core primer resource"
@@ -38,6 +39,9 @@ stdio: $(STAMP)
 
 mcpb: $(STAMP)
 	"$(VENV_PYTHON)" -m decentralised_art_mcp.mcpb
+
+sync-docs: $(STAMP)
+	"$(VENV_PYTHON)" scripts/sync_documentation.py
 
 list-tools: $(STAMP)
 	"$(VENV_PYTHON)" -m decentralised_art_mcp.server list-tools

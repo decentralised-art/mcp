@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from tempfile import TemporaryDirectory
 from pathlib import Path
 
 import anyio
@@ -27,11 +28,16 @@ class MCPStdioTests(unittest.TestCase):
             )
             async with stdio_client(server) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
+                    initialized = await session.initialize()
+                    self.assertIn("core.documentation", initialized.instructions)
+                    self.assertIn("core.create_account", initialized.instructions)
+                    self.assertIn("core.docs.llms-full", initialized.instructions)
 
                     tools_page_1 = await session.list_tools()
                     tool_names_page_1 = {tool.name for tool in tools_page_1.tools}
                     self.assertIn("core.connector_exists", tool_names_page_1)
+                    self.assertIn("core.documentation", tool_names_page_1)
+                    self.assertIn("core.create_account", tool_names_page_1)
                     self.assertTrue(tools_page_1.nextCursor)
 
                     tools_page_2 = await session.list_tools(params=types.PaginatedRequestParams(cursor=tools_page_1.nextCursor))
@@ -54,20 +60,36 @@ class MCPStdioTests(unittest.TestCase):
 
                     resources_page_1 = await session.list_resources()
                     resource_uris_page_1 = {str(resource.uri) for resource in resources_page_1.resources}
-                    self.assertEqual(resource_uris_page_1, {"decentralised-art://resource/core.primer"})
+                    self.assertIn("decentralised-art://resource/core.primer", resource_uris_page_1)
+                    self.assertIn("decentralised-art://resource/core.getting-started", resource_uris_page_1)
+                    self.assertIn("decentralised-art://resource/core.docs.llms-full", resource_uris_page_1)
                     self.assertIsNone(resources_page_1.nextCursor)
 
                     read_result = await session.read_resource("decentralised-art://resource/core.primer")
                     self.assertEqual(len(read_result.contents), 1)
                     self.assertIn("format-agnostic", read_result.contents[0].text)
                     self.assertEqual(str(read_result.contents[0].uri), "decentralised-art://resource/core.primer")
+                    docs = await session.call_tool("core.documentation", {})
+                    self.assertFalse(docs.isError)
+                    self.assertIn("core.create_account", docs.structuredContent["data"]["text"])
+                    if os.name == "posix":
+                        account = await session.call_tool("core.create_account", {"account_id": "stdio_owner"})
+                        again = await session.call_tool("core.create_account", {"account_id": "stdio_owner"})
+                        self.assertFalse(account.isError)
+                        self.assertTrue(account.structuredContent["data"]["created"])
+                        self.assertEqual(account.structuredContent["data"]["address"], again.structuredContent["data"]["address"])
+                        self.assertFalse(again.structuredContent["data"]["created"])
+                        self.assertEqual(set(account.structuredContent["data"]), {"account_id", "address", "created"})
 
                     call_result = await session.call_tool("core.build_parent_connector", {"name": "piece", "child_names": ["a", "b"]})
                     self.assertFalse(call_result.isError)
                     self.assertEqual(call_result.structuredContent["data"]["name"], "piece")
                     self.assertEqual(len(call_result.structuredContent["data"]["dimensions"]), 2)
 
-        anyio.run(_run)
+        with TemporaryDirectory() as account_directory:
+            from unittest.mock import patch
+            with patch.dict(os.environ, {"DECENTRALISED_ART_ACCOUNT_ROOT": account_directory, "PRIVATE_KEY": ""}):
+                anyio.run(_run)
 
 
 if __name__ == "__main__":

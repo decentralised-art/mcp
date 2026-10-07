@@ -49,6 +49,7 @@ def build_manifest() -> dict:
                     "PRIVATE_KEY": "${user_config.private_key}",
                     "DECENTRALISED_ART_TIMEOUT": "${user_config.timeout}",
                     "DECENTRALISED_ART_ARTIFACT_ROOT": "${user_config.artifact_root}",
+                    "DECENTRALISED_ART_ACCOUNT_ROOT": "${user_config.account_root}",
                 },
             },
         },
@@ -83,7 +84,7 @@ def build_manifest() -> dict:
             "private_key": {
                 "type": "string",
                 "title": "Private Key",
-                "description": "Optional Ethereum private key for authenticated decentralised.art operations.",
+                "description": "Optional existing-owner Ethereum key. Leave empty to let the agent create a fresh local identity with core.create_account; never provide a key in chat.",
                 "sensitive": True,
                 "required": False,
                 "default": "",
@@ -103,6 +104,13 @@ def build_manifest() -> dict:
                 "description": "Directory for persistent publication transaction records.",
                 "default": "decentralised-art-mcp-artifacts",
                 "required": True,
+            },
+            "account_root": {
+                "type": "string",
+                "title": "Local Account Storage",
+                "description": "Optional persistent absolute directory for generated signing keys (owner-only). Empty uses ~/.decentralised-art-mcp/accounts. Fresh-account generation requires macOS/Linux.",
+                "default": "",
+                "required": False,
             },
         },
     }

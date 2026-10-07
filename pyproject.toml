@@ -29,4 +29,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"decentralised_art_mcp" = ["resources/**/*.md", "generated/*.json"]
+"decentralised_art_mcp" = ["resources/**/*.md", "resources/**/*.txt", "resources/**/*.json", "generated/*.json"]

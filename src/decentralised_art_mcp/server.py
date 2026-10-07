@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import pathlib
 from typing import Any, Dict, Tuple
 
 import mcp.server.stdio
@@ -17,12 +16,25 @@ from .pagination import DEFAULT_RESOURCES_PAGE_SIZE, DEFAULT_TOOLS_PAGE_SIZE, pa
 from .registry import ToolRegistry
 from .resources import ResourceRegistry
 from .tools import core
+from .documentation import DOC_ROOT, DOCUMENTS
+from .models import ResourceSpec
 
 
 SERVER_NAME = "decentralised-art-mcp"
 SERVER_INSTRUCTIONS = (
     "decentralised.art MCP server exposing core protocol operations for local drafts, simulation, "
-    "publication, onchain execution, and discovery."
+    "publication, onchain execution, and discovery. "
+    "Read core.documentation (default topic getting-started) before creating operations; "
+    "the same bundled guides are available as core.getting-started, core.primer and core.docs.* resources. "
+    "Before designing operations, read topic llms-full or resource core.docs.llms-full for the complete "
+    "platform documentation, system concepts and good practices. For paginated tool reads, follow "
+    "next_start_line until null; a single page is not the whole document. "
+    "Reading, simulation and execution need no account. For a user-requested fresh identity, "
+    "core.create_account generates and retains a dedicated Ethereum key locally and returns only "
+    "account_id and address; pass account_id to authenticated tools and reuse it for that owner's drafts. "
+    "Do not require the user to supply an existing private key for a fresh identity. "
+    "Never ask for or expose private keys in chat. Existing owners can configure PRIVATE_KEY locally. "
+    "Account creation and drafts spend no gas; publication needs funded owner accounts and explicit fee limits."
 )
 TOOL_OUTPUT_SCHEMA = {
     "type": "object",
@@ -42,12 +54,13 @@ def build_registries() -> Tuple[ToolRegistry, ResourceRegistry]:
 
     core.register(tools)
 
-    base = pathlib.Path(__file__).resolve().parent / "resources" / "core"
-    resources.register_markdown(
-        name="core.primer",
-        description="Format-agnostic decentralised.art primer covering connectors, dimensions, RI, and execution trees.",
-        path=base / "primer.md",
-    )
+    for topic, (title, filename) in DOCUMENTS.items():
+        name = f"core.{topic}" if topic in {"primer", "getting-started"} else f"core.docs.{topic}"
+        resources.register(ResourceSpec(
+            name=name, description=title,
+            mime_type="text/plain" if filename.endswith(".txt") else "text/markdown",
+            file_path=DOC_ROOT / filename,
+        ))
 
     return tools, resources
 
