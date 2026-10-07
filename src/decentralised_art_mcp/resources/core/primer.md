@@ -1,5 +1,12 @@
 # decentralised.art Core Primer
 
+Start with `core.documentation` (topic `getting-started`) or the
+`core.getting-started` resource for account onboarding and the documentation index.
+For user-requested fresh-account work, `core.create_account` generates and keeps
+a dedicated key locally; pass its `account_id` to authenticated tools. No
+user-supplied private key or gas is needed for this path. Existing owners can
+configure `PRIVATE_KEY` locally. Never ask for a private key in chat.
+
 decentralised.art core concepts are format-agnostic:
 - formats define available feature spaces
 - connectors define reusable transformation graphs

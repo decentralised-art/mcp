@@ -1,0 +1,2 @@
+# Generated platform snapshots retain their original whitespace and source bytes.
+src/decentralised_art_mcp/resources/core/docs/* -text -whitespace linguist-generated=true

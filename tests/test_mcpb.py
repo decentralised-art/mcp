@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from decentralised_art_mcp.mcpb import build_bundle, build_manifest
+from decentralised_art_mcp.documentation import DOC_ROOT
 
 
 class McpbTests(TestCase):
@@ -19,6 +20,7 @@ class McpbTests(TestCase):
         self.assertIn("private_key", manifest["user_config"])
         self.assertIn("timeout", manifest["user_config"])
         self.assertIn("artifact_root", manifest["user_config"])
+        self.assertIn("account_root", manifest["user_config"])
         self.assertTrue(any(tool["name"] == "core.build_parent_connector" for tool in manifest["tools"]))
         self.assertTrue(all(tool["name"].startswith("core.") for tool in manifest["tools"]))
 
@@ -42,9 +44,17 @@ class McpbTests(TestCase):
                 primer_path = "src/decentralised_art_mcp/resources/core/primer.md"
                 self.assertIn(primer_path, names)
                 self.assertIn("core.simulate_connector", archive.read(primer_path).decode("utf-8"))
+                self.assertIn("core.create_account", archive.read("src/decentralised_art_mcp/resources/core/getting-started.md").decode("utf-8"))
+                for topic in ("tutorial", "mcp", "sdk", "api-reference", "about", "roadmap"):
+                    self.assertIn(f"src/decentralised_art_mcp/resources/core/docs/{topic}.md", names)
+                full_path = "src/decentralised_art_mcp/resources/core/docs/llms-full.txt"
+                self.assertEqual(archive.read(full_path), (DOC_ROOT / "docs/llms-full.txt").read_bytes())
+                self.assertIn("src/decentralised_art_mcp/resources/core/docs/llms-full.metadata.json", names)
                 manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
                 self.assertEqual(manifest["name"], "decentralised-art-mcp")
                 tool_names = {tool["name"] for tool in manifest["tools"]}
                 self.assertIn("core.publish_entity", tool_names)
                 self.assertIn("core.confirm_publication", tool_names)
+                self.assertIn("core.documentation", tool_names)
+                self.assertIn("core.create_account", tool_names)
                 self.assertTrue(all(name.startswith("core.") for name in tool_names))

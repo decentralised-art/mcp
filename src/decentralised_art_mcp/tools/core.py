@@ -6,6 +6,8 @@ from ..config import DEFAULT_PREFERRED_TRANSFORMATION_PAIRS, MAX_TIMEOUT_SECONDS
 from ..context import context_from_params
 from ..errors import ValidationError
 from ..artifacts import resolve_artifact_path
+from ..accounts import create_local_account
+from ..documentation import DOCUMENTS, read_documentation
 from ..lifecycle import confirm_existing, publish_recorded
 from ..schemas import array_schema, boolean_schema, integer_schema, number_schema, object_schema, string_schema
 
@@ -19,6 +21,8 @@ STREAM_REPLAY_LIMIT_SCHEMA = integer_schema(minimum=1, maximum=MAX_STREAM_REPLAY
 PARTICLES_COUNT_SCHEMA = integer_schema(minimum=1, maximum=MAX_PARTICLES_COUNT)
 TRANSFORMATION_PAIR_SCHEMA = array_schema(string_schema(min_length=1), min_items=2, max_items=2)
 TRANSFORMATION_PAIRS_SCHEMA = array_schema(TRANSFORMATION_PAIR_SCHEMA, min_items=1)
+ACCOUNT_SCHEMA = {"account_id": {**string_schema(min_length=1), "description": "Local identity returned by core.create_account. Reuse it for the draft owner; the key stays inside the server."},
+                  "private_key": {**string_schema(), "description": "Existing-owner key override. Prefer PRIVATE_KEY in local secret settings; never request it in chat."}}
 
 
 def _optional_int(params: Dict[str, Any], key: str, *, default: int, minimum: int, maximum: int) -> int:
@@ -66,6 +70,25 @@ def build_parent_connector(child_names: Sequence[str], *, name: str) -> Dict[str
 
 
 def register(registry) -> None:
+    @registry.tool(
+        namespace="core", name="documentation",
+        description="Read bundled decentralised.art documentation without network access or authentication. Start here for fresh-account onboarding: no user-supplied private key is required. Read topic llms-full for the complete unabridged platform documentation, system concepts and good practices before designing operations. Other topics: getting-started, primer, tutorial, mcp, sdk, api-reference, about, roadmap. Follow next_start_line until null to read an entire long document.",
+        input_schema=object_schema({
+            "topic": {**string_schema(), "enum": list(DOCUMENTS), "default": "getting-started"},
+            "start_line": integer_schema(minimum=1), "max_lines": integer_schema(minimum=1, maximum=300),
+        }, additional_properties=False),
+    )
+    def _documentation(params):
+        return read_documentation(params.get("topic", "getting-started"), start_line=params.get("start_line", 1), max_lines=params.get("max_lines", 200))
+
+    @registry.tool(
+        namespace="core", name="create_account",
+        description="Create or reuse a named local Ethereum signing identity for user-requested fresh-account work. No existing private key, network request, funds or gas required. The server retains the key in owner-only local storage; returns only account_id, address and created. Pass account_id to authenticated tools. Retry with the same ID to retain ownership; never replace an existing owner with a fresh identity. Requires POSIX storage permissions. See core.documentation.",
+        input_schema=object_schema({"account_id": {**string_schema(min_length=1), "description": "Choose a stable ID, e.g. draft_owner. Start with a letter, use only letters, digits and underscores, at most 64 characters. Reuse this ID on retries."}}, required=["account_id"], additional_properties=False),
+    )
+    def _create_account(params):
+        return create_local_account(params["account_id"])
+
     @registry.tool(
         namespace="core",
         name="connector_exists",
@@ -230,8 +253,8 @@ def register(registry) -> None:
     @registry.tool(
         namespace="core",
         name="create_connector",
-        description="Create a server-local connector draft. Does not publish or spend gas.",
-        input_schema=object_schema({"payload": object_schema(), "private_key": string_schema(), "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["payload"]),
+        description="Create a server-local connector draft. Does not publish or spend gas. Use account_id from core.create_account for a fresh identity, or locally configured PRIVATE_KEY for an existing owner. Read core.documentation for onboarding; never ask for a private key in chat.",
+        input_schema=object_schema({"payload": object_schema(), **ACCOUNT_SCHEMA, "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["payload"]),
     )
     def _create_connector(params: Dict[str, Any]) -> Dict[str, Any]:
         with context_from_params(params) as ctx:
@@ -240,8 +263,8 @@ def register(registry) -> None:
     @registry.tool(
         namespace="core",
         name="create_transformation",
-        description="Create a server-local transformation draft. Does not publish or spend gas.",
-        input_schema=object_schema({"payload": object_schema(), "private_key": string_schema(), "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["payload"]),
+        description="Create a server-local transformation draft. Does not publish or spend gas. Use account_id from core.create_account for a fresh identity, or locally configured PRIVATE_KEY for an existing owner. Read core.documentation for onboarding; never ask for a private key in chat.",
+        input_schema=object_schema({"payload": object_schema(), **ACCOUNT_SCHEMA, "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["payload"]),
     )
     def _create_transformation(params: Dict[str, Any]) -> Dict[str, Any]:
         with context_from_params(params) as ctx:
@@ -250,8 +273,8 @@ def register(registry) -> None:
     @registry.tool(
         namespace="core",
         name="create_condition",
-        description="Create a server-local condition draft. Does not publish or spend gas.",
-        input_schema=object_schema({"payload": object_schema(), "private_key": string_schema(), "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["payload"]),
+        description="Create a server-local condition draft. Does not publish or spend gas. Use account_id from core.create_account for a fresh identity, or locally configured PRIVATE_KEY for an existing owner. Read core.documentation for onboarding; never ask for a private key in chat.",
+        input_schema=object_schema({"payload": object_schema(), **ACCOUNT_SCHEMA, "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}, required=["payload"]),
     )
     def _create_condition(params: Dict[str, Any]) -> Dict[str, Any]:
         with context_from_params(params) as ctx:
@@ -270,7 +293,7 @@ def register(registry) -> None:
             return {"particles": particles, "execution_mode": "simulation"}
 
     publication_schema = {"kind": string_schema(min_length=1), "name": string_schema(min_length=1),
-        "private_key": string_schema(), "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}
+        **ACCOUNT_SCHEMA, "api_base": string_schema(), "timeout": TIMEOUT_SCHEMA}
 
     @registry.tool(namespace="core", name="prepare_publication",
         description="Prepare a draft for owner-paid chain publication and inspect relay transaction/fee fields. Does not sign or send.",
@@ -341,12 +364,12 @@ def register(registry) -> None:
     @registry.tool(
         namespace="core",
         name="ensure_preflight",
-        description="Authenticate, ensure required connectors exist, and resolve a preferred transformation pair.",
+        description="Authenticate using account_id from core.create_account or a locally configured owner key, ensure required connectors exist, and resolve a preferred transformation pair. Read core.documentation for fresh-account onboarding; never ask for a private key in chat.",
         input_schema=object_schema(
             {
                 "required_connectors": array_schema(string_schema(min_length=1), min_items=1),
                 "preferred_transformation_pairs": TRANSFORMATION_PAIRS_SCHEMA,
-                "private_key": string_schema(),
+                **ACCOUNT_SCHEMA,
                 "api_base": string_schema(),
                 "timeout": TIMEOUT_SCHEMA,
             },
